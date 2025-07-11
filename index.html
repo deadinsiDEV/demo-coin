@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Demo Uygulaması</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Giriş/Kayıt Formu -->
+        <div id="auth-container" class="auth-container">
+            <div class="auth-form">
+                <h2>Hoş Geldiniz</h2>
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('login')">Giriş Yap</button>
+                    <button class="tab-btn" onclick="switchTab('register')">Kayıt Ol</button>
+                </div>
+                
+                <div id="login-form" class="form-content">
+                    <input type="text" id="login-username" placeholder="Kullanıcı Adı">
+                    <input type="password" id="login-password" placeholder="Şifre">
+                    <button onclick="login()">Giriş Yap</button>
+                </div>
+                
+                <div id="register-form" class="form-content" style="display:none">
+                    <input type="text" id="register-username" placeholder="Kullanıcı Adı">
+                    <input type="password" id="register-password" placeholder="Şifre">
+                    <button onclick="register()">Kayıt Ol</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ana Uygulama -->
+        <div id="app-container" class="app-container" style="display:none">
+            <header class="app-header">
+                <div class="user-info">
+                    <span id="welcome-message"></span>
+                    <button onclick="showSettingsModal()" class="settings-btn"><i class="fas fa-cog"></i></button>
+                    <button onclick="logout()" class="logout-btn"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+
+                <div class="balance-info">
+                    <div class="balance">
+                        <span>Bakiye:</span>
+                        <span id="balance-tl">0.00 TL</span>
+                        <span id="balance-usd">(0.00 USD)</span>
+                    </div>
+                    <button onclick="showDepositModal()" class="action-btn"><i class="fas fa-plus"></i> Para Yatır</button>
+                    <button onclick="showWithdrawModal()" class="action-btn withdraw-btn"><i class="fas fa-minus"></i> Para Çek</button>
+                </div>
+            </header>
+
+            <main class="app-main">
+                <section class="market-section">
+                    <h2><i class="fab fa-bitcoin"></i> <span class="section-title">Piyasa</span></h2>
+                    <div class="coin-list" id="coin-list">
+                        <div class="empty-portfolio">Piyasa verileri yükleniyor...</div>
+                    </div>
+                </section>
+
+                <section class="portfolio-section">
+                    <h2><i class="fas fa-wallet"></i> <span class="section-title">Portföyüm</span></h2>
+                    <div class="portfolio-controls">
+                        <button onclick="togglePortfolioView('list')" class="view-btn active">Liste</button>
+                        <button onclick="togglePortfolioView('chart')" class="view-btn">Grafik</button>
+                    </div>
+                    <div class="portfolio-list" id="portfolio-list">
+                        <div class="empty-portfolio">Portföyünüz boş</div>
+                    </div>
+                    <div class="portfolio-chart" id="portfolio-chart" style="display:none">
+                        <div class="empty-portfolio">Portföy grafiği yükleniyor...</div>
+                    </div>
+                </section>
+
+                <section class="transaction-section">
+                    <h2><i class="fas fa-history"></i> <span class="section-title">İşlem Geçmişi</span></h2>
+                    <div class="transaction-list" id="transaction-list">
+                        <div class="empty-portfolio">Henüz işlem yapılmadı</div>
+                    </div>
+                </section>
+
+                <section class="profit-section">
+                    <h2><i class="fas fa-chart-line"></i> <span class="section-title">Kar/Zarar</span></h2>
+                    <div class="time-period-control">
+                        <button id="time-period-btn" onclick="cycleTimePeriod()" class="time-period-btn">24 Saat</button>
+                    </div>
+                    <div class="profit-info" id="profit-info">
+                        <div class="profit-item">
+                            <span>Toplam Yatırım:</span>
+                            <span id="total-invested">0.00 TL</span>
+                        </div>
+                        <div class="profit-item">
+                            <span>Toplam Portföy Değeri:</span>
+                            <span id="total-portfolio-value">0.00 TL</span>
+                        </div>
+                        <div class="profit-item">
+                            <span>Kar/Zarar (TL):</span>
+                            <span id="profit-amount" class="profit-amount">0.00 TL</span>
+                        </div>
+                        <div class="profit-item">
+                            <span>Kar/Zarar (%):</span>
+                            <span id="profit-percentage" class="profit-percentage">0.00%</span>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+        <!-- Modals -->
+        <div id="deposit-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">×</span>
+                <h3>Para Yatır</h3>
+                <input type="number" id="deposit-amount" placeholder="TL miktarı" min="0">
+                <button onclick="depositMoney()">Yatır</button>
+            </div>
+        </div>
+
+        <!-- Add new withdraw modal inside the Modals section -->
+        <div id="withdraw-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">×</span>
+                <h3>Para Çek</h3>
+                <input type="number" id="withdraw-amount" placeholder="TL miktarı" min="0">
+                <button onclick="withdrawMoney()">Çek</button>
+            </div>
+        </div>
+
+        <div id="buy-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">×</span>
+                <h3 id="buy-modal-title">Coin Al</h3>
+                <div class="coin-price-info">
+                    <span id="buy-coin-price"></span>
+                    <span id="buy-coin-change"></span>
+                </div>
+                <input type="number" id="buy-amount" placeholder="TL miktarı" min="0">
+                <div class="buy-summary">
+                    <span>Alacağınız miktar: <span id="buy-coin-amount">0</span> <span id="buy-coin-symbol"></span></span>
+                </div>
+                <button onclick="buyCoin()">Satın Al</button>
+            </div>
+        </div>
+
+        <div id="sell-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">×</span>
+                <h3 id="sell-modal-title">Coin Sat</h3>
+                <div class="coin-price-info">
+                    <span id="sell-coin-price"></span>
+                    <span id="sell-coin-change"></span>
+                </div>
+                <input type="number" id="sell-amount" placeholder="Satılacak coin miktarı" min="0">
+                <div class="sell-summary">
+                    <span>Alacağınız miktar: <span id="sell-tl-amount">0</span> TL</span>
+                </div>
+                <button onclick="sellCoin()">Sat</button>
+            </div>
+        </div>
+
+        <div id="settings-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">×</span>
+                <h3>Ayarlar</h3>
+                <div class="settings-section">
+                    <h4>Tema</h4>
+                    <select id="theme-select" onchange="changeTheme()">
+                        <option value="light">Açık Mod</option>
+                        <option value="dark">Koyu Mod</option>
+                    </select>
+                </div>
+                <div class="settings-section">
+                    <h4>Para Birimi</h4>
+                    <select id="currency-select" onchange="changeCurrency()">
+                        <option value="try">Türk Lirası (TL)</option>
+                        <option value="usd">ABD Doları (USD)</option>
+                    </select>
+                </div>
+                <div class="settings-section">
+                    <h4>Dil</h4>
+                    <select id="language-select" onchange="changeLanguage()">
+                        <option value="tr">Türkçe</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div class="settings-section">
+                    <h4>Piyasa Verileri Yenileme</h4>
+                    <label>
+                        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()"> Otomatik Yenile (30sn)
+                    </label>
+                </div>
+                <div class="settings-section">
+                    <h4>Bildirimler</h4>
+                    <label>
+                        <input type="checkbox" id="price-alerts"> Fiyat Uyarıları
+                    </label>
+                    <div id="price-alert-settings" style="display:none">
+                        <input type="text" id="alert-coin" placeholder="Coin (örn: bitcoin)">
+                        <input type="number" id="alert-price" placeholder="Hedef Fiyat (TL)">
+                        <button onclick="addPriceAlert()">Ekle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="price-alert-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">×</span>
+                <h3>Fiyat Uyarısı</h3>
+                <p id="alert-message"></p>
+                <button onclick="closeModal()">Tamam</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
