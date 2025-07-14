@@ -332,18 +332,13 @@ async function updateProfitInfo() {
         return;
     }
 
-    // Calculate total invested amount from buy transactions
-    let totalInvested = 0;
-    currentUser.transactions.forEach(tx => {
-        if (tx.type === 'buy') {
-            totalInvested += tx.amount * tx.price;
-        }
-    });
+    // Toplam yatırımı al
+    let totalInvested = currentUser.totalInvested || 0;
 
-    // Calculate total portfolio value based on selected time period
+    // Toplam portföy değerini hesapla
     let totalPortfolioValue = 0;
     const selectedPeriod = timePeriods[currentTimePeriodIndex].value;
-    Object.entries(currentUser.portfolio).forEach(([coinId, amount]) => {
+    Object.entries(currentUser.portfolio).forEach(([coinId, data]) => {
         const coin = coinsData.find(c => c.id === coinId);
         if (coin) {
             let price;
@@ -352,15 +347,15 @@ async function updateProfitInfo() {
             } else {
                 price = settings.currency === 'try' ? coin.current_price : coin.current_price / usdToTryRate;
             }
-            totalPortfolioValue += amount * price;
+            totalPortfolioValue += data.amount * price;
         }
     });
 
-    // Calculate profit/loss
+    // Kar/zarar hesapla
     const profitAmount = totalPortfolioValue - totalInvested;
     const profitPercentage = totalInvested > 0 ? (profitAmount / totalInvested) * 100 : 0;
 
-    // Update DOM
+    // DOM'u güncelle
     const profitInfoEl = document.getElementById('profit-info');
     profitInfoEl.innerHTML = `
         <div class="profit-item">
@@ -503,11 +498,11 @@ function updatePortfolio() {
         return;
     }
     
-    Object.entries(currentUser.portfolio).forEach(([coinId, amount]) => {
+    Object.entries(currentUser.portfolio).forEach(([coinId, data]) => {
         const coin = coinsData.find(c => c.id === coinId);
         if (!coin) return;
         
-        const totalValue = amount * (settings.currency === 'try' ? coin.current_price : coin.current_price / usdToTryRate);
+        const totalValue = data.amount * (settings.currency === 'try' ? coin.current_price : coin.current_price / usdToTryRate);
         const portfolioItem = document.createElement('div');
         portfolioItem.className = 'portfolio-item';
         
@@ -520,7 +515,7 @@ function updatePortfolio() {
                 </div>
             </div>
             <div class="portfolio-value">
-                <div class="portfolio-amount">${amount.toFixed(6)} ${coin.symbol.toUpperCase()}</div>
+                <div class="portfolio-amount">${data.amount.toFixed(6)} ${coin.symbol.toUpperCase()}</div>
                 <div class="portfolio-profit ${totalValue >= 0 ? 'positive' : 'negative'}">${totalValue.toFixed(2)} ${settings.currency.toUpperCase()}</div>
             </div>
             <button class="sell-btn" onclick="showSellModal('${coin.id}')">${translations[settings.language].sell}</button>
@@ -698,7 +693,18 @@ function buyCoin() {
         currentUser.portfolio = {};
     }
     
-    currentUser.portfolio[selectedCoin.id] = (currentUser.portfolio[selectedCoin.id] || 0) + coinAmount;
+    const currentAmount = currentUser.portfolio[selectedCoin.id]?.amount || 0;
+    const currentAvgPrice = currentUser.portfolio[selectedCoin.id]?.avgBuyPrice || 0;
+    const newAmount = currentAmount + coinAmount;
+    const newAvgPrice = currentAmount > 0 
+        ? ((currentAmount * currentAvgPrice) + tlAmount) / newAmount 
+        : (settings.currency === 'try' ? selectedCoin.current_price : selectedCoin.current_price / usdToTryRate);
+    
+    currentUser.portfolio[selectedCoin.id] = {
+        amount: newAmount,
+        avgBuyPrice: newAvgPrice
+    };
+    
     if (!currentUser.transactions) {
         currentUser.transactions = [];
     }
@@ -709,6 +715,9 @@ function buyCoin() {
         price: settings.currency === 'try' ? selectedCoin.current_price : selectedCoin.current_price / usdToTryRate,
         timestamp: new Date().toISOString()
     });
+    
+    // Toplam yatırımı güncelle
+    updateTotalInvested(tlAmount);
     
     updateUserInStorage();
     updateUserInfo();
@@ -728,16 +737,22 @@ function sellCoin() {
         return;
     }
     
-    const availableAmount = currentUser.portfolio[selectedCoin.id] || 0;
+    const availableAmount = currentUser.portfolio[selectedCoin.id]?.amount || 0;
     if (coinAmount > availableAmount) {
         alert('Yeterli coin miktarınız yok!');
         return;
     }
     
-    currentUser.balance += tlAmount;
-    currentUser.portfolio[selectedCoin.id] -= coinAmount;
+    // Ortalama alış fiyatını al
+    const avgBuyPrice = currentUser.portfolio[selectedCoin.id]?.avgBuyPrice || selectedCoin.current_price;
     
-    if (currentUser.portfolio[selectedCoin.id] <= 0) {
+    // Toplam yatırımdan satılan miktarı çıkar
+    const soldInvestment = coinAmount * avgBuyPrice;
+    
+    currentUser.balance += tlAmount;
+    currentUser.portfolio[selectedCoin.id].amount -= coinAmount;
+    
+    if (currentUser.portfolio[selectedCoin.id].amount <= 0) {
         delete currentUser.portfolio[selectedCoin.id];
     }
     
@@ -752,12 +767,26 @@ function sellCoin() {
         timestamp: new Date().toISOString()
     });
     
+    // Toplam yatırımı güncelle
+    updateTotalInvested(-soldInvestment);
+    
     updateUserInStorage();
     updateUserInfo();
     renderTransactionList(currentUser.transactions);
-    updateProfitInfo(); // Add this
+    updateProfitInfo();
     closeModal();
     alert(`${coinAmount.toFixed(6)} ${selectedCoin.symbol.toUpperCase()} ${translations[settings.language].sell.toLowerCase()} satıldı. ${tlAmount.toFixed(2)} ${settings.currency.toUpperCase()} hesabınıza eklendi.`);
+}
+
+function updateTotalInvested(amount) {
+    if (!currentUser.totalInvested) {
+        currentUser.totalInvested = 0;
+    }
+    currentUser.totalInvested += amount;
+    if (currentUser.totalInvested < 0) {
+        currentUser.totalInvested = 0; // Negatif yatırım olamaz
+    }
+    updateUserInStorage();
 }
 
 // Update user in storage
